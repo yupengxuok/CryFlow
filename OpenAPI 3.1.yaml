@@ -1,0 +1,742 @@
+openapi: 3.1.0
+info:
+  title: WhyMyBabyCries API
+  version: 0.1.0
+  description: >
+    Demo-first, non-medical caregiver support API for event logging, timeline viewing,
+    and lightweight analysis. Designed for hackathon demos and Retool dashboards.
+
+servers:
+  - url: https://api.example.com
+    description: Production (replace)
+  - url: http://localhost:3000
+    description: Local dev
+
+tags:
+  - name: Health
+  - name: Events
+  - name: Analysis
+  - name: Actions
+  - name: Datasets
+
+security:
+  - BearerAuth: []
+  - DemoKey: []
+
+paths:
+  /v1/health:
+    get:
+      tags: [Health]
+      operationId: healthCheck
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/babies/{baby_id}/events:
+    post:
+      tags: [Events]
+      operationId: createEvent
+      summary: Create a new baby event (cry/feed/diaper/sleep/note)
+      parameters:
+        - $ref: "#/components/parameters/BabyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+            examples:
+              cryEvent:
+                summary: Cry event example
+                value:
+                  source: manual
+                  type: cry
+                  ts: "2026-01-16T19:22:10Z"
+                  payload:
+                    cry:
+                      intensity: 0.8
+                      duration_sec: 140
+                      pattern: continuous
+                      pitch_hint: high
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      tags: [Events]
+      operationId: listEvents
+      summary: Get a baby event timeline
+      parameters:
+        - $ref: "#/components/parameters/BabyId"
+        - name: limit
+          in: query
+          description: Max number of events to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+        - name: since
+          in: query
+          description: Return events at or after this timestamp (RFC3339)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: Return events before this timestamp (RFC3339)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: types
+          in: query
+          description: Filter by event types (comma-separated)
+          required: false
+          schema:
+            type: string
+            example: "cry,feed,diaper"
+      responses:
+        "200":
+          description: Timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEventsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/babies/{baby_id}/analyze:
+    post:
+      tags: [Analysis]
+      operationId: analyzeBaby
+      summary: Analyze recent events and return non-medical caregiver suggestions
+      parameters:
+        - $ref: "#/components/parameters/BabyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeRequest"
+            examples:
+              analyzeExample:
+                summary: Analyze example
+                value:
+                  window_min: 360
+                  include_questions: true
+                  context:
+                    caregiver_note: "Baby woke up 10 min ago."
+                    locale: "en-US"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/babies/{baby_id}/actions:
+    post:
+      tags: [Actions]
+      operationId: createAction
+      summary: Record an agent/caregiver action triggered from an analysis (demo-friendly)
+      parameters:
+        - $ref: "#/components/parameters/BabyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActionRequest"
+            examples:
+              startTimer:
+                summary: Start a reassess timer
+                value:
+                  analysis_id: "ana_01J3QZ9..."
+                  action: start_timer
+                  params:
+                    timer_min: 10
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/datasets/senso/import:
+    post:
+      tags: [Datasets]
+      operationId: importSensoDataset
+      summary: Import synthetic pattern records (demo shim for Senso.ai integration)
+      description: >
+        For demo purposes, this endpoint accepts synthetic dataset records.
+        In a real integration, the backend could fetch/pull from Senso.ai directly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SensoImportRequest"
+            examples:
+              importExample:
+                summary: Import 2 synthetic patterns
+                value:
+                  dataset_name: "senso_synthetic_baby_patterns_v1"
+                  records:
+                    - pattern: hunger
+                      avg_feed_interval_min: 180
+                      cry_profile: continuous
+                      notes: "Typically increases around 3h since last feed."
+                    - pattern: overtired
+                      avg_awake_window_min: 90
+                      cry_profile: escalating
+                      notes: "Often after long wake window."
+      responses:
+        "200":
+          description: Imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SensoImportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth0 JWT (optional for demo). If not provided, use DemoKey.
+    DemoKey:
+      type: apiKey
+      in: header
+      name: X-Demo-Key
+      description: Demo key for hackathon use (e.g., "demo"). Use if BearerAuth not configured.
+
+  parameters:
+    BabyId:
+      name: baby_id
+      in: path
+      required: true
+      description: Baby identifier (demo-friendly string)
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        example: baby_demo_1
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalid:
+              value:
+                error:
+                  code: bad_request
+                  message: "Invalid request body."
+                  request_id: "req_01..."
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unauthorized:
+              value:
+                error:
+                  code: unauthorized
+                  message: "Missing or invalid credentials."
+                  request_id: "req_01..."
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            internal:
+              value:
+                error:
+                  code: internal_error
+                  message: "Unexpected error."
+                  request_id: "req_01..."
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, ts]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        ts:
+          type: string
+          format: date-time
+
+    CreateEventRequest:
+      type: object
+      additionalProperties: false
+      required: [source, type, ts, payload]
+      properties:
+        source:
+          type: string
+          description: Where the event came from
+          enum: [manual, device, agent]
+        type:
+          type: string
+          enum: [cry, feed, diaper, sleep, note]
+        ts:
+          type: string
+          format: date-time
+          description: Event timestamp (RFC3339)
+        payload:
+          $ref: "#/components/schemas/EventPayload"
+
+    CreateEventResponse:
+      type: object
+      additionalProperties: false
+      required: [event_id, stored]
+      properties:
+        event_id:
+          type: string
+          description: Server-generated event id
+          example: evt_01J3QZ8KQ2
+        stored:
+          type: boolean
+          example: true
+
+    ListEventsResponse:
+      type: object
+      additionalProperties: false
+      required: [baby_id, events]
+      properties:
+        baby_id:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+
+    Event:
+      type: object
+      additionalProperties: false
+      required: [event_id, baby_id, source, type, ts, payload]
+      properties:
+        event_id:
+          type: string
+        baby_id:
+          type: string
+        source:
+          type: string
+          enum: [manual, device, agent]
+        type:
+          type: string
+          enum: [cry, feed, diaper, sleep, note]
+        ts:
+          type: string
+          format: date-time
+        payload:
+          $ref: "#/components/schemas/EventPayload"
+
+    EventPayload:
+      type: object
+      additionalProperties: false
+      description: Payload keyed by event type. Only the matching object should be present.
+      properties:
+        cry:
+          $ref: "#/components/schemas/CryPayload"
+        feed:
+          $ref: "#/components/schemas/FeedPayload"
+        diaper:
+          $ref: "#/components/schemas/DiaperPayload"
+        sleep:
+          $ref: "#/components/schemas/SleepPayload"
+        note:
+          $ref: "#/components/schemas/NotePayload"
+      oneOf:
+        - required: [cry]
+        - required: [feed]
+        - required: [diaper]
+        - required: [sleep]
+        - required: [note]
+
+    CryPayload:
+      type: object
+      additionalProperties: false
+      required: [intensity, duration_sec]
+      properties:
+        intensity:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Relative intensity (0-1)
+          example: 0.8
+        duration_sec:
+          type: integer
+          minimum: 1
+          maximum: 7200
+          example: 140
+        pattern:
+          type: string
+          description: Cry pattern hint
+          enum: [continuous, intermittent, escalating, unknown]
+          default: unknown
+        pitch_hint:
+          type: string
+          description: Optional pitch hint (if available)
+          enum: [high, low, unknown]
+          default: unknown
+
+    FeedPayload:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        amount_ml:
+          type: integer
+          minimum: 0
+          maximum: 500
+          description: Amount consumed in ml (optional)
+          example: 90
+        method:
+          type: string
+          enum: [bottle, breast, unknown]
+          default: unknown
+        notes:
+          type: string
+          maxLength: 500
+
+    DiaperPayload:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        wet:
+          type: boolean
+          description: Wet diaper
+        dirty:
+          type: boolean
+          description: Dirty diaper
+        notes:
+          type: string
+          maxLength: 500
+
+    SleepPayload:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [asleep, woke_up, nap_end]
+        notes:
+          type: string
+          maxLength: 500
+
+    NotePayload:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    AnalyzeRequest:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        window_min:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          default: 360
+          description: Lookback window in minutes
+        include_questions:
+          type: boolean
+          default: true
+        context:
+          $ref: "#/components/schemas/AnalyzeContext"
+
+    AnalyzeContext:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        caregiver_note:
+          type: string
+          maxLength: 2000
+        locale:
+          type: string
+          maxLength: 32
+          example: en-US
+
+    AnalysisResult:
+      type: object
+      additionalProperties: false
+      required:
+        - analysis_id
+        - baby_id
+        - ts
+        - signals
+        - hypotheses
+        - suggestions
+      properties:
+        analysis_id:
+          type: string
+          example: ana_01J3QZ9
+        baby_id:
+          type: string
+          example: baby_demo_1
+        ts:
+          type: string
+          format: date-time
+        signals:
+          $ref: "#/components/schemas/Signals"
+        hypotheses:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Hypothesis"
+        suggestions:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Suggestion"
+        next_best_questions:
+          type: array
+          items:
+            type: string
+          description: Optional follow-up questions to ask caregiver for clarity
+
+    Signals:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        time_since_last_feed_min:
+          type: integer
+          minimum: 0
+          example: 185
+        time_since_last_diaper_min:
+          type: integer
+          minimum: 0
+          example: 95
+        recent_sleep_min:
+          type: integer
+          minimum: 0
+          example: 22
+        cry_duration_sec:
+          type: integer
+          minimum: 0
+          example: 140
+
+    Hypothesis:
+      type: object
+      additionalProperties: false
+      required: [label, confidence, why]
+      properties:
+        label:
+          type: string
+          description: Non-medical hypothesis label
+          enum:
+            - hunger
+            - overtired
+            - discomfort
+            - needs_burp_or_gas
+            - overstimulated
+            - wants_contact
+            - unknown
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.62
+        why:
+          type: array
+          items:
+            type: string
+          minItems: 1
+
+    Suggestion:
+      type: object
+      additionalProperties: false
+      required: [title, steps]
+      properties:
+        title:
+          type: string
+          maxLength: 120
+          example: Try feeding
+        steps:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        safety_note:
+          type: string
+          maxLength: 300
+          description: Non-medical disclaimer / safety note
+
+    CreateActionRequest:
+      type: object
+      additionalProperties: false
+      required: [analysis_id, action]
+      properties:
+        analysis_id:
+          type: string
+          description: Link to an analysis result for auditability
+          example: ana_01J3QZ9
+        action:
+          type: string
+          enum: [log_feeding_attempt, start_timer, open_checklist]
+        params:
+          type: object
+          description: Action-specific parameters
+          additionalProperties: true
+          examples:
+            - timer_min: 10
+
+    CreateActionResponse:
+      type: object
+      additionalProperties: false
+      required: [action_id, status]
+      properties:
+        action_id:
+          type: string
+          example: act_01J3R0
+        status:
+          type: string
+          enum: [accepted, rejected]
+        ui_hint:
+          $ref: "#/components/schemas/UiHint"
+
+    UiHint:
+      type: object
+      additionalProperties: false
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          enum: [toast, modal, banner]
+        message:
+          type: string
+          maxLength: 200
+
+    SensoImportRequest:
+      type: object
+      additionalProperties: false
+      required: [dataset_name, records]
+      properties:
+        dataset_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        records:
+          type: array
+          minItems: 1
+          maxItems: 2000
+          items:
+            $ref: "#/components/schemas/SensoPatternRecord"
+
+    SensoPatternRecord:
+      type: object
+      additionalProperties: false
+      required: [pattern]
+      properties:
+        pattern:
+          type: string
+          description: Named pattern class used for demo priors
+          enum: [hunger, overtired, discomfort, overstimulated, wants_contact, other]
+        avg_feed_interval_min:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        avg_awake_window_min:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        cry_profile:
+          type: string
+          enum: [continuous, intermittent, escalating, random]
+        notes:
+          type: string
+          maxLength: 500
+
+    SensoImportResponse:
+      type: object
+      additionalProperties: false
+      required: [dataset_id, imported]
+      properties:
+        dataset_id:
+          type: string
+          example: ds_01J3R1
+        imported:
+          type: integer
+          minimum: 0
+          example: 2
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              example: bad_request
+            message:
+              type: string
+              example: Invalid request body.
+            request_id:
+              type: string
+              example: req_01J3R2
