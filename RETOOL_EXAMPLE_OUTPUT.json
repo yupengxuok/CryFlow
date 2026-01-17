@@ -1,0 +1,42 @@
+[
+  {
+    "event_id": "507f1f77bcf86cd799439011",
+    "likely_reasons": ["hunger", "sleepy"],
+    "recommended_checks": [
+      "Offer breast or bottle",
+      "Watch for feeding cues",
+      "Burp after feeding",
+      "Dim lights",
+      "Reduce noise",
+      "Gentle rocking"
+    ],
+    "confidence": 0.85,
+    "explanation": "Time since last feed (210 min) exceeds typical 3-hour interval"
+  },
+  {
+    "event_id": "507f1f77bcf86cd799439012",
+    "likely_reasons": ["hunger", "sleepy"],
+    "recommended_checks": [
+      "Offer breast or bottle",
+      "Watch for feeding cues",
+      "Burp after feeding",
+      "Dim lights",
+      "Reduce noise",
+      "Gentle rocking"
+    ],
+    "confidence": 0.85,
+    "explanation": "Time since last feed (210 min) exceeds typical 3-hour interval"
+  },
+  {
+    "event_id": "507f1f77bcf86cd799439013",
+    "likely_reasons": ["dirty_diaper", "discomfort"],
+    "recommended_checks": [
+      "Check diaper",
+      "Change if needed",
+      "Clean gently",
+      "Apply barrier cream if needed"
+    ],
+    "confidence": 0.75,
+    "explanation": "Extended time since diaper change suggests check needed"
+  }
+]
